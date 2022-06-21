@@ -1,19 +1,16 @@
-﻿// See https://aka.ms/new-console-template for more information
-
-using System.Collections.Immutable;
-using System.ComponentModel;
-using System.Numerics;
+﻿namespace PrimeWitnessesLiarsFinder;
 
 public class Program
 {
-    
+    private static readonly Dictionary<long, long> Liars = new();
+    //TODO try to parallelize this
     private static void Main()
     {
-        const long maxValue = 100000L;
+        const long maxValue = 10000L;
 
         var n = 0L;
         var startTime = DateTime.Now;
-        var timer = new Timer(StillAliveMsg, null, 5000, 5000);
+        var timer = new Timer(StillAliveMsg, null, 10000, 10000);
 
         for (n = 3; n <= maxValue; n++)
         {
@@ -21,16 +18,19 @@ public class Program
         }
 
         timer.Dispose();
+        var elapsedTime = DateTime.Now - startTime;
         
+        using var fs = new FileStream("liars.csv", FileMode.OpenOrCreate);
+        using var sw = new StreamWriter(fs);
         foreach (var (key, value) in Liars.Select(kvp => (Key: kvp.Key, Value: kvp.Value)).OrderBy(v => v.Value))
         {
+            sw.WriteLine($"{key},{value}");
             Console.WriteLine($"{key}: {value}");
         }
-        Console.WriteLine($"Done in {DateTime.Now - startTime}");
+        sw.Close();
+        fs.Close();
         
-        //Console.WriteLine(VerifyPrimeWithOneWitness(91, 11));
-        //Console.WriteLine(ModSquareAndMultiply(23, 373, 747));
-        //Console.WriteLine(ModSquareAndMultiply(3, 45, 7));
+        Console.WriteLine($"Done in {elapsedTime}");
 
         void StillAliveMsg(object? state)
         {
@@ -38,7 +38,6 @@ public class Program
         }
     }
     
-    private static readonly Dictionary<long, long> Liars = new();
     private static void FindLiars(long numberToTest)
     {
         var tempLiars = new List<long>();
@@ -136,40 +135,40 @@ public class Program
     }
     
     /* BigInteger Version
-    private static BigInteger ModSquareAndMultiply(BigInteger baseNumber, BigInteger exponent, BigInteger modulus)
+private static BigInteger ModSquareAndMultiply(BigInteger baseNumber, BigInteger exponent, BigInteger modulus)
+{
+    Span<byte> bytes = stackalloc byte[exponent.GetByteCount()]; // This is for using BigInteger
+    exponent.TryWriteBytes(bytes, out _);
+
+    var value = baseNumber;
+    
+    for (var byteIndex = bytes.Length - 1; byteIndex >= 0; byteIndex--)
     {
-        Span<byte> bytes = stackalloc byte[exponent.GetByteCount()]; // This is for using BigInteger
-        exponent.TryWriteBytes(bytes, out _);
-  
-        var value = baseNumber;
-        
-        for (var byteIndex = bytes.Length - 1; byteIndex >= 0; byteIndex--)
+        var byteLenght = 7;
+        var exponentByte = bytes[byteIndex];
+        if (byteIndex == bytes.Length - 1)
         {
-            var byteLenght = 7;
-            var exponentByte = bytes[byteIndex];
-            if (byteIndex == bytes.Length - 1)
+            int i; 
+            for (i = byteLenght; i >= 0; i--)
             {
-                int i; 
-                for (i = byteLenght; i >= 0; i--)
-                {
-                    if ((exponentByte & (1 << i)) == 1 << i) break;
-                }
+                if ((exponentByte & (1 << i)) == 1 << i) break;
+            }
 
-                byteLenght = i - 1;
-                if (byteLenght < 0) continue;
-            }
-            for (var i = byteLenght; i >= 0; i--)
-            {
-                //Console.Write($"[{i}] bLenght: {byteLenght} byte: {exponentByte}, bit {((exponentByte & (1 << i)) == (1 << i) ? "1" : "0")} ");
-                //Console.WriteLine((exponentByte & (1 << i)) == 1 << i ? "SM" : "S");
-                value = (exponentByte & (1 << i)) == 1 << i ? SquareAndMultiply(value) : Square(value);
-            }
+            byteLenght = i - 1;
+            if (byteLenght < 0) continue;
         }
-
-        return value;
-
-        BigInteger Square(BigInteger a) => (a * a) % modulus;
-        BigInteger SquareAndMultiply(BigInteger a) => (Square(a) * baseNumber) % modulus; // or a * a * baseNumber % modulus not sure which one is faster
+        for (var i = byteLenght; i >= 0; i--)
+        {
+            //Console.Write($"[{i}] bLenght: {byteLenght} byte: {exponentByte}, bit {((exponentByte & (1 << i)) == (1 << i) ? "1" : "0")} ");
+            //Console.WriteLine((exponentByte & (1 << i)) == 1 << i ? "SM" : "S");
+            value = (exponentByte & (1 << i)) == 1 << i ? SquareAndMultiply(value) : Square(value);
+        }
     }
-    */
+
+    return value;
+
+    BigInteger Square(BigInteger a) => (a * a) % modulus;
+    BigInteger SquareAndMultiply(BigInteger a) => (Square(a) * baseNumber) % modulus; // or a * a * baseNumber % modulus not sure which one is faster
+}
+*/
 }

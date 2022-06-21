@@ -1,55 +1,146 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
+using System.Collections.Immutable;
+using System.ComponentModel;
 using System.Numerics;
 
 public class Program
 {
-
+    
     private static void Main()
     {
-        Console.WriteLine(VerifyPrimeWithOneWitness(91, 11));
-        Console.WriteLine(ModSquareAndMultiply(23, 373, 747));
-        Console.WriteLine(ModSquareAndMultiply(3, 45, 7));
+        const long maxValue = 100000L;
+
+        var n = 0L;
+        var startTime = DateTime.Now;
+        var timer = new Timer(StillAliveMsg, null, 5000, 5000);
+
+        for (n = 3; n <= maxValue; n++)
+        {
+            FindLiars(n);
+        }
+
+        timer.Dispose();
+        
+        foreach (var (key, value) in Liars.Select(kvp => (Key: kvp.Key, Value: kvp.Value)).OrderBy(v => v.Value))
+        {
+            Console.WriteLine($"{key}: {value}");
+        }
+        Console.WriteLine($"Done in {DateTime.Now - startTime}");
+        
+        //Console.WriteLine(VerifyPrimeWithOneWitness(91, 11));
+        //Console.WriteLine(ModSquareAndMultiply(23, 373, 747));
+        //Console.WriteLine(ModSquareAndMultiply(3, 45, 7));
+
+        void StillAliveMsg(object? state)
+        {
+            Console.WriteLine($"[{DateTime.Now}] Hello, I am still alive! I have processed {n}/{maxValue} numbers so far. I'll keep you updated in 5 seconds intervals.");
+        }
     }
     
-    private static readonly BigInteger two = new(2); // Avoid unnecessary BigInteger creations
-    private static bool VerifyPrimeWithOneWitness(BigInteger numberToTest, BigInteger witness)
+    private static readonly Dictionary<long, long> Liars = new();
+    private static void FindLiars(long numberToTest)
     {
-        if (numberToTest == two)
-            return true;
+        var tempLiars = new List<long>();
+
+        var isPrime = true;
+        var cachedValue = (-1L, -1L);
+        for (long w = 2; w < (numberToTest >> 1); w++)
+        {
+            if (VerifyPrimeWithOneWitness(numberToTest, w, ref cachedValue))
+            {
+                if (isPrime)
+                    tempLiars.Add(w);
+                else AddLiar(w);
+                
+                continue;
+            }
+            
+            isPrime = false;
+        }
+
+        if (isPrime) return;
+        foreach (var liar in tempLiars) AddLiar(liar);
+
+        void AddLiar(long liar)
+        {
+            if (Liars.ContainsKey(liar))
+                Liars[liar]++;
+            else
+                Liars.Add(liar, 1);
+        }
+    }
     
+    private static bool VerifyPrimeWithOneWitness(long numberToTest, long witness, ref (long, long) cachedFactoredNum)
+    {
+        //if (numberToTest == 2) // This function shall not be called with numberToTest = 2
+        //return true;
+
         if (IsDivisibleByTwo(numberToTest))
             return false;
 
         var factoredNum = numberToTest - 1;
-        var s = 0;
-        while (IsDivisibleByTwo(factoredNum))
+        var s = 0L;
+        if (cachedFactoredNum == (-1, -1))
         {
-            factoredNum >>= 1;
-            s++;
+            while (IsDivisibleByTwo(factoredNum))
+            {
+                factoredNum >>= 1;
+                s++;
+            }
+            
+            cachedFactoredNum = (factoredNum, s);
         }
 
-        Console.WriteLine(factoredNum);
+        (factoredNum, s) = cachedFactoredNum;
+        
         var result = ModSquareAndMultiply(witness, factoredNum, numberToTest);
 
-        if (result == 1 || result == numberToTest - BigInteger.One) return true;
+        if (result == 1 || result == numberToTest - 1L) return true;
         
         for (var i = 0; i < s; i++)
         {
             result = (result * result) % numberToTest;
             
-            if (result == numberToTest - BigInteger.One) return true;
+            if (result == numberToTest - 1L) return true;
         }
         
         return false;
 
-        bool IsDivisibleByTwo(BigInteger n) => (n.ToByteArray()[0] & 1) == 0;
+        bool IsDivisibleByTwo(long n) => (n & 1) == 0; // this allocated 1GB of memory, so maybe its best to use % 2 instead
+        //bool IsDivisibleByTwo(long n) => n % Two == 0;
     }
 
+    private static long ModSquareAndMultiply(long baseNumber, long exponent, long modulus)
+    {
+        var value = baseNumber;
+
+        var foundAOne = false;
+        for (var i = 63; i >= 0; i--)
+        {
+            switch (foundAOne)
+            {
+                case false when (exponent & (1 << i)) == 1 << i:
+                    foundAOne = true;
+                    continue;
+                case true:
+                    value = (exponent & (1 << i)) == 1 << i ? SquareAndMultiply(value) : Square(value);
+                    break;
+            }
+        }
+
+        return value;
+
+        long Square(long a) => (a * a) % modulus;
+        long SquareAndMultiply(long a) => (Square(a) * baseNumber) % modulus; // or a * a * baseNumber % modulus not sure which one is faster though it will overflow earlier
+    }
+    
+    /* BigInteger Version
     private static BigInteger ModSquareAndMultiply(BigInteger baseNumber, BigInteger exponent, BigInteger modulus)
     {
-        var bytes = exponent.ToByteArray();
-
+        Span<byte> bytes = stackalloc byte[exponent.GetByteCount()]; // This is for using BigInteger
+        exponent.TryWriteBytes(bytes, out _);
+  
         var value = baseNumber;
         
         for (var byteIndex = bytes.Length - 1; byteIndex >= 0; byteIndex--)
@@ -80,4 +171,5 @@ public class Program
         BigInteger Square(BigInteger a) => (a * a) % modulus;
         BigInteger SquareAndMultiply(BigInteger a) => (Square(a) * baseNumber) % modulus; // or a * a * baseNumber % modulus not sure which one is faster
     }
+    */
 }
